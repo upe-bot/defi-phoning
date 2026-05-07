@@ -70,7 +70,11 @@ main{padding:22px 28px;max-width:1440px;margin:0 auto;}
 .card.to-recall{border-color:#fef3c7;background:#fffbeb;}
 .card.to-recall::before{background:linear-gradient(90deg,#f59e0b,#fbbf24);}
 .card:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,0.09);}
+.card.message-left{border-color:#ede9fe;background:#f5f3ff;}
+.card.message-left::before{background:linear-gradient(90deg,#7c3aed,#a78bfa);}
 @keyframes pulse-orange{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.35);}50%{box-shadow:0 0 0 6px rgba(245,158,11,0);}}
+.card.to-recall{animation:pulse-orange 2.5s infinite;}
+.badge-message-left{background:#ede9fe;color:#5b21b6;}
 .card.to-recall{animation:pulse-orange 2.5s infinite;}
 
 .card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px;gap:8px;}
@@ -269,6 +273,7 @@ main{padding:22px 28px;max-width:1440px;margin:0 auto;}
     <button class="filter-btn active" onclick="setFilter('all',this)">Tous</button>
     <button class="filter-btn" onclick="setFilter('pending',this)">🔵 À appeler</button>
     <button class="filter-btn" onclick="setFilter('called',this)">✅ Appelés</button>
+    <button class="filter-btn" onclick="setFilter('message-left',this)">💬 Message laissé</button>
     <button class="filter-btn" onclick="setFilter('to-recall',this)">🔔 Rappels</button>
     <button class="filter-btn" onclick="setFilter('donateur',this)">💛 Donateurs</button>
     <button class="filter-btn" onclick="setFilter('coureur',this)">🏃 Coureurs</button>
@@ -351,7 +356,7 @@ main{padding:22px 28px;max-width:1440px;margin:0 auto;}
     <div class="modal-title"><span>📞</span> Enregistrer l'appel <span class="mname" id="call-modal-name"></span></div>
     <div class="caller-box">
       <div class="ctitle">✍️ Qui passe cet appel ?</div>
-      <div class="form-row" style="margin-bottom:0">
+      <div class="form-row" style="margin-bottom:10px">
         <div class="form-group" style="margin-bottom:0">
           <label>Prénom</label>
           <input type="text" id="c-caller-prenom" placeholder="Sophie" style="background:white">
@@ -361,11 +366,16 @@ main{padding:22px 28px;max-width:1440px;margin:0 auto;}
           <input type="text" id="c-caller-nom" placeholder="Martin" style="background:white">
         </div>
       </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Votre téléphone (affiché dans l'email si message laissé)</label>
+        <input type="tel" id="c-caller-phone" placeholder="06 12 34 56 78" style="background:white">
+      </div>
     </div>
     <div class="form-group">
       <label>Résultat de l'appel</label>
       <select id="c-status">
         <option value="called">✅ Appel réussi — participant joint</option>
+        <option value="message-left">💬 Message laissé — pas de rappel nécessaire</option>
         <option value="to-recall">🔔 À rappeler — pas de réponse / rappel demandé</option>
       </select>
     </div>
@@ -654,10 +664,11 @@ function getFiltered(){
       // All active filters must match (AND logic)
       for (const f of activeFilters) {
         let ok = false;
-        if      (f === 'pending')   ok = p.status === 'pending';
-        else if (f === 'called')    ok = p.status === 'called';
-        else if (f === 'to-recall') ok = p.status === 'to-recall';
-        else if (f === 'etudiant')  ok = p.etudiant === true;
+        if      (f === 'pending')      ok = p.status === 'pending';
+        else if (f === 'called')       ok = p.status === 'called';
+        else if (f === 'to-recall')    ok = p.status === 'to-recall';
+        else if (f === 'message-left') ok = p.status === 'message-left';
+        else if (f === 'etudiant')     ok = p.etudiant === true;
         else if (f === 'Angers')    ok = (p.cities||[]).includes('Angers');
         else if (f === 'Joue')      ok = (p.cities||[]).includes('Joue');
         else if (tagKeys.includes(f)) ok = (p.tags||[]).includes(f);
@@ -705,8 +716,8 @@ function renderCards(){
 
   if(filtered.length===0){ container.innerHTML='<div class="empty-state"><div class="icon">📭</div><h3>Aucun participant trouvé</h3><p>Modifiez votre recherche ou ajoutez un participant.</p></div>'; return; }
 
-  const statusOrder=['to-recall','pending','called'];
-  const order={'to-recall':0,'pending':1,'called':2};
+  const statusOrder=['to-recall','pending','message-left','called'];
+  const order={'to-recall':0,'pending':1,'message-left':2,'called':3};
   // Sort: by status first, then newest first within each group
   const sorted=[...filtered].sort((a,b)=>{
     if(order[a.status]!==order[b.status]) return order[a.status]-order[b.status];
@@ -717,8 +728,8 @@ function renderCards(){
   });
   const groups={};
   sorted.forEach(p=>{ if(!groups[p.status]) groups[p.status]=[]; groups[p.status].push(p); });
-  const labels={'to-recall':'🔔 À rappeler','pending':'🔵 À appeler','called':'✅ Appelés'};
-  const countStyle={'to-recall':'background:#fef3c7;color:#92400e','pending':'background:#eff6ff;color:#1d4ed8','called':'background:#d1fae5;color:#065f46'};
+  const labels={'to-recall':'🔔 À rappeler','pending':'🔵 À appeler','message-left':'💬 Message laissé','called':'✅ Appelés'};
+  const countStyle={'to-recall':'background:#fef3c7;color:#92400e','pending':'background:#eff6ff;color:#1d4ed8','message-left':'background:#ede9fe;color:#5b21b6','called':'background:#d1fae5;color:#065f46'};
 
   let out='';
   statusOrder.forEach((s,i)=>{
@@ -734,7 +745,13 @@ function renderCard(p){
   const name=fullName(p);
   const isEtudiant=!!(p.etudiant);
   const tagHtml=(p.tags||[]).map(t=>{ const m=TAG_META[t]; return m?'<span class="tag '+m.cls+'">'+m.icon+' '+m.label+'</span>':''; }).join('')||'<span style="color:#9ca3af;font-size:10px">Aucun statut</span>';
-  const statusBadge=p.status==='called'?'<span class="status-badge badge-called">✅ Appelé</span>':p.status==='to-recall'?'<span class="status-badge badge-to-recall">🔔 Rappel</span>':'<span class="status-badge badge-pending">⏳ En attente</span>';
+  const statusBadge = p.status==='called'
+    ? '<span class="status-badge badge-called">✅ Appelé</span>'
+    : p.status==='to-recall'
+    ? '<span class="status-badge badge-to-recall">🔔 Rappel</span>'
+    : p.status==='message-left'
+    ? '<span class="status-badge badge-message-left">💬 Message laissé</span>'
+    : '<span class="status-badge badge-pending">⏳ En attente</span>';
   const cityBtns=CITIES.map(ck=>'<button class="card-city-btn'+(cities.includes(ck)?' active':'')+'" onclick="toggleCardCity(\''+p._key+'\',\''+ck+'\')">'+CITY_LABELS[ck]+'</button>').join('');
   const etudiantBtn='<button class="card-city-btn'+(isEtudiant?' active':'')+'" style="'+(isEtudiant?'background:#854d0e;border-color:#854d0e;color:white':'border-color:#d1d5db;color:#6b7280')+'" onclick="toggleEtudiant(\''+p._key+'\')">🎓 Étudiant</button>';
   const lienHtml=p.lien?'<div class="lien-participant"><span class="lien-label">🔗 Coureur :</span>'+p.lien+'</div>':'';
@@ -814,6 +831,8 @@ window.saveParticipant = async function(){
 };
 
 // ── CALL + EMAIL ──────────────────────────────────────────
+const EMAILJS_TPL_MESSAGE = 'template_mzfb0gm'; // Message laissé
+
 window.openCallModal = function(key){
   callingKey=key; const p=getP(key);
   document.getElementById('call-modal-name').textContent='— '+fullName(p);
@@ -821,6 +840,7 @@ window.openCallModal = function(key){
   const lastCaller=(localStorage.getItem('defi-last-caller')||'').split('|');
   document.getElementById('c-caller-prenom').value=lastCaller[0]||'';
   document.getElementById('c-caller-nom').value=lastCaller[1]||'';
+  document.getElementById('c-caller-phone').value=localStorage.getItem('defi-last-phone')||'';
   document.getElementById('c-status').value='called';
   openModal('call-modal');
 };
@@ -828,39 +848,86 @@ window.openCallModal = function(key){
 window.logCall = async function(){
   const callerPrenom=document.getElementById('c-caller-prenom').value.trim();
   const callerNom=document.getElementById('c-caller-nom').value.trim();
+  const callerPhone=document.getElementById('c-caller-phone').value.trim();
   if(!callerPrenom){ showToast('⚠️ Indiquez votre prénom !','warning'); return; }
   const callerFull=(callerPrenom+' '+callerNom).trim();
   const status=document.getElementById('c-status').value;
   const noteText=document.getElementById('c-note').value.trim();
-  localStorage.setItem('defi-last-caller',callerPrenom+'|'+callerNom);
+
+  // Save caller info for next time
+  localStorage.setItem('defi-last-caller', callerPrenom+'|'+callerNom);
+  localStorage.setItem('defi-last-phone', callerPhone);
 
   const existing=participants[callingKey]||{};
   const comments=Object.assign({},existing.comments||{});
-  comments['c'+Date.now()]={by:callerFull,date:today(),note:noteText||(status==='called'?'Appel effectué.':'Pas de réponse — rappel demandé.')};
+  const noteDefault = status==='called'
+    ? 'Appel effectué.'
+    : status==='message-left'
+    ? 'Message laissé.'
+    : 'Pas de réponse — rappel demandé.';
+  comments['c'+Date.now()]={by:callerFull,date:today(),note:noteText||noteDefault};
   await fbSet(callingKey,Object.assign({},existing,{status,comments}));
   closeModal('call-modal');
-  showToast(status==='called'?'✅ Appel enregistré !':'🔔 Rappel planifié !','success');
 
-  // Send email ONLY on successful call AND if participant has an email
-  if(status==='called' && existing.email){
+  const toastMsg = status==='called'
+    ? '✅ Appel enregistré !'
+    : status==='message-left'
+    ? '💬 Message laissé enregistré !'
+    : '🔔 Rappel planifié !';
+  showToast(toastMsg,'success');
+
+  // ── Send email ──
+  const emailAddr = existing.email;
+  if (!emailAddr) return;
+
+  // Anti-doublon : vérifier si un email a déjà été envoyé à cet email
+  const alreadySent = Object.values(participants).some(p =>
+    p.email === emailAddr &&
+    p._key !== callingKey &&
+    (p.emailSent === true)
+  );
+
+  const prenom = existing.prenom || (existing.name||'').split(' ')[0] || 'Participant';
+
+  if (status === 'called' && !alreadySent) {
     try {
       await emailjs.send(EMAILJS_SVC, EMAILJS_TPL, {
-        prenom:   existing.prenom || (existing.name||'').split(' ')[0] || 'Participant',
-        appelant: callerFull,
-        to_email: existing.email,
+        prenom, appelant: callerFull, to_email: emailAddr,
+        telephone_appelant: callerPhone,
       });
-      showToast('📧 Email envoyé à '+existing.email,'success');
+      await fbSet(callingKey, Object.assign({},existing,{status,comments,emailSent:true}));
+      showToast('📧 Email envoyé à '+emailAddr,'success');
     } catch(err){
       console.error('EmailJS error',err);
       showToast('⚠️ Email non envoyé — vérifiez EmailJS','warning');
     }
+  } else if (status === 'message-left' && !alreadySent) {
+    try {
+      await emailjs.send(EMAILJS_SVC, EMAILJS_TPL_MESSAGE, {
+        prenom, appelant: callerFull, to_email: emailAddr,
+        telephone_appelant: callerPhone,
+      });
+      await fbSet(callingKey, Object.assign({},existing,{status,comments,emailSent:true}));
+      showToast('📧 Email "message laissé" envoyé à '+emailAddr,'success');
+    } catch(err){
+      console.error('EmailJS error',err);
+      showToast('⚠️ Email non envoyé — vérifiez EmailJS','warning');
+    }
+  } else if (alreadySent) {
+    showToast('ℹ️ Email déjà envoyé à ce contact','');
   }
 };
 
 window.toggleRecall = async function(key){
   const existing=participants[key]||{};
-  const newStatus=existing.status==='to-recall'?(Object.keys(existing.comments||{}).length>0?'called':'pending'):'to-recall';
-  showToast(newStatus==='to-recall'?'🔔 Marqué à rappeler':'↩️ Rappel annulé',newStatus==='to-recall'?'warning':'');
+  let newStatus;
+  if (existing.status==='to-recall') {
+    newStatus = Object.keys(existing.comments||{}).length > 0 ? 'called' : 'pending';
+    showToast('↩️ Rappel annulé','');
+  } else {
+    newStatus = 'to-recall';
+    showToast('🔔 Marqué à rappeler','warning');
+  }
   await fbSet(key,Object.assign({},existing,{status:newStatus}));
 };
 
