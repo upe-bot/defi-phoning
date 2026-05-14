@@ -72,6 +72,9 @@ main{padding:22px 28px;max-width:1440px;margin:0 auto;}
 .card:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,0.09);}
 .card.message-left{border-color:#ede9fe;background:#f5f3ff;}
 .card.message-left::before{background:linear-gradient(90deg,#7c3aed,#a78bfa);}
+.card.archived{border-color:#e5e7eb;background:#f9fafb;opacity:0.75;}
+.card.archived::before{background:linear-gradient(90deg,#9ca3af,#d1d5db);}
+.badge-archived{background:#f3f4f6;color:#6b7280;}
 @keyframes pulse-orange{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.35);}50%{box-shadow:0 0 0 6px rgba(245,158,11,0);}}
 .card.to-recall{animation:pulse-orange 2.5s infinite;}
 .badge-message-left{background:#ede9fe;color:#5b21b6;}
@@ -130,6 +133,8 @@ main{padding:22px 28px;max-width:1440px;margin:0 auto;}
 .btn-edit:hover{border-color:var(--rose);color:var(--rose);}
 .btn-delete{padding:8px 9px;background:white;color:#ef4444;border:2px solid #fecaca;border-radius:50px;font-size:11px;cursor:pointer;}
 .btn-delete:hover{background:#fef2f2;}
+.btn-archive{padding:8px 9px;background:white;color:#6b7280;border:2px solid #e5e7eb;border-radius:50px;font-size:11px;cursor:pointer;transition:all 0.2s;}
+.btn-archive:hover{border-color:#6b7280;}
 
 /* MODALS */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:14px;opacity:0;pointer-events:none;transition:opacity 0.2s;}
@@ -274,6 +279,7 @@ main{padding:22px 28px;max-width:1440px;margin:0 auto;}
     <button class="filter-btn" onclick="setFilter('pending',this)">🔵 À appeler</button>
     <button class="filter-btn" onclick="setFilter('called',this)">✅ Appelés</button>
     <button class="filter-btn" onclick="setFilter('message-left',this)">💬 Message laissé</button>
+    <button class="filter-btn" onclick="setFilter('archived',this)">📦 Archivés</button>
     <button class="filter-btn" onclick="setFilter('to-recall',this)">🔔 Rappels</button>
     <button class="filter-btn" onclick="setFilter('donateur',this)">💛 Donateurs</button>
     <button class="filter-btn" onclick="setFilter('coureur',this)">🏃 Coureurs</button>
@@ -668,6 +674,7 @@ function getFiltered(){
         else if (f === 'called')       ok = p.status === 'called';
         else if (f === 'to-recall')    ok = p.status === 'to-recall';
         else if (f === 'message-left') ok = p.status === 'message-left';
+        else if (f === 'archived')     ok = p.status === 'archived';
         else if (f === 'etudiant')     ok = p.etudiant === true;
         else if (f === 'Angers')    ok = (p.cities||[]).includes('Angers');
         else if (f === 'Joue')      ok = (p.cities||[]).includes('Joue');
@@ -705,7 +712,10 @@ function getFiltered(){
 function renderCards(){
   const container=document.getElementById('cards-container');
   const list=getList(); const filtered=getFiltered();
-  const total=list.length, called=list.filter(p=>p.status==='called').length, recall=list.filter(p=>p.status==='to-recall').length;
+  const activeList = list.filter(p=>p.status!=='archived');
+  const total  = activeList.length;
+  const called = activeList.filter(p=>p.status==='called').length;
+  const recall = activeList.filter(p=>p.status==='to-recall').length;
   document.getElementById('stat-total').textContent=total;
   document.getElementById('stat-called').textContent=called;
   document.getElementById('stat-recall').textContent=recall;
@@ -716,20 +726,19 @@ function renderCards(){
 
   if(filtered.length===0){ container.innerHTML='<div class="empty-state"><div class="icon">📭</div><h3>Aucun participant trouvé</h3><p>Modifiez votre recherche ou ajoutez un participant.</p></div>'; return; }
 
-  const statusOrder=['to-recall','pending','message-left','called'];
-  const order={'to-recall':0,'pending':1,'message-left':2,'called':3};
+  const statusOrder=['pending','to-recall','message-left','called','archived'];
+  const order={'pending':0,'to-recall':1,'message-left':2,'called':3,'archived':4};
   // Sort: by status first, then newest first within each group
   const sorted=[...filtered].sort((a,b)=>{
     if(order[a.status]!==order[b.status]) return order[a.status]-order[b.status];
-    // Newest first: compare createdAt descending
     const dateA = a.createdAt||'';
     const dateB = b.createdAt||'';
     return dateB.localeCompare(dateA);
   });
   const groups={};
   sorted.forEach(p=>{ if(!groups[p.status]) groups[p.status]=[]; groups[p.status].push(p); });
-  const labels={'to-recall':'🔔 À rappeler','pending':'🔵 À appeler','message-left':'💬 Message laissé','called':'✅ Appelés'};
-  const countStyle={'to-recall':'background:#fef3c7;color:#92400e','pending':'background:#eff6ff;color:#1d4ed8','message-left':'background:#ede9fe;color:#5b21b6','called':'background:#d1fae5;color:#065f46'};
+  const labels={'pending':'🔵 À appeler','to-recall':'🔔 À rappeler','message-left':'💬 Message laissé','called':'✅ Appelés','archived':'📦 Archivés'};
+  const countStyle={'pending':'background:#eff6ff;color:#1d4ed8','to-recall':'background:#fef3c7;color:#92400e','message-left':'background:#ede9fe;color:#5b21b6','called':'background:#d1fae5;color:#065f46','archived':'background:#f3f4f6;color:#6b7280'};
 
   let out='';
   statusOrder.forEach((s,i)=>{
@@ -751,6 +760,8 @@ function renderCard(p){
     ? '<span class="status-badge badge-to-recall">🔔 Rappel</span>'
     : p.status==='message-left'
     ? '<span class="status-badge badge-message-left">💬 Message laissé</span>'
+    : p.status==='archived'
+    ? '<span class="status-badge badge-archived">📦 Archivé</span>'
     : '<span class="status-badge badge-pending">⏳ En attente</span>';
   const cityBtns=CITIES.map(ck=>'<button class="card-city-btn'+(cities.includes(ck)?' active':'')+'" onclick="toggleCardCity(\''+p._key+'\',\''+ck+'\')">'+CITY_LABELS[ck]+'</button>').join('');
   const etudiantBtn='<button class="card-city-btn'+(isEtudiant?' active':'')+'" style="'+(isEtudiant?'background:#854d0e;border-color:#854d0e;color:white':'border-color:#d1d5db;color:#6b7280')+'" onclick="toggleEtudiant(\''+p._key+'\')">🎓 Étudiant</button>';
@@ -780,7 +791,7 @@ function renderCard(p){
     +'<div class="card-cities"><span class="city-icon">🏙</span>'+cityBtns+etudiantBtn+'</div>'
     +lienHtml+assoHtml
     +'<div class="comments-thread">'+commentsHtml+'</div>'
-    +'<div class="card-actions"><button class="btn-call" onclick="openCallModal(\''+p._key+'\')">📞 '+(p.status==='called'?'Nouvel appel':'Marquer appelé')+'</button>'+bellBtn+'<button class="btn-edit" onclick="openEditModal(\''+p._key+'\')">✏️</button><button class="btn-delete" onclick="askDelete(\''+p._key+'\')">🗑</button></div>'
+    +'<div class="card-actions"><button class="btn-call" onclick="openCallModal(\''+p._key+'\')">📞 '+(p.status==='called'?'Nouvel appel':'Marquer appelé')+'</button>'+bellBtn+'<button class="btn-archive" onclick="toggleArchive(\''+p._key+'\')" title="'+(p.status==='archived'?'Désarchiver':'Archiver')+'">'+(p.status==='archived'?'↩️':'📦')+'</button><button class="btn-edit" onclick="openEditModal(\''+p._key+'\')">✏️</button><button class="btn-delete" onclick="askDelete(\''+p._key+'\')">🗑</button></div>'
     +'</div>';
 }
 
@@ -942,6 +953,19 @@ window.toggleCardCity = async function(key,cityKey){
 window.toggleEtudiant = async function(key){
   const existing=participants[key]||{};
   await fbSet(key,Object.assign({},existing,{etudiant:!existing.etudiant}));
+};
+
+window.toggleArchive = async function(key){
+  const existing=participants[key]||{};
+  if (existing.status==='archived') {
+    // Restore to previous status or pending
+    const prevStatus = existing.prevStatus || 'pending';
+    await fbSet(key,Object.assign({},existing,{status:prevStatus,prevStatus:null}));
+    showToast('↩️ Contact désarchivé','');
+  } else {
+    await fbSet(key,Object.assign({},existing,{status:'archived',prevStatus:existing.status}));
+    showToast('📦 Contact archivé','');
+  }
 };
 
 window.askDelete = function(key){
